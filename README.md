@@ -87,12 +87,19 @@ repository, so `omarchy-backups diff <a> <b>` and friends work too.
 
 | File | Purpose |
 |------|---------|
-| `config` | Repository path, mount point, retention counts |
+| `config` | Repository path, mount point, retention counts, lock-retry window |
 | `sources` | One path per line to back up (`~` expands; missing paths are skipped) |
 | `excludes` | restic exclude patterns (caches, build output, container data) |
 | `password` | The repository encryption key |
 
 Default retention keeps 7 daily, 4 weekly, 6 monthly, and 2 yearly snapshots.
+
+`RETRY_LOCK` (default `1m`) is how long a backup or integrity check waits for
+the repository when another operation is already running, instead of failing
+immediately. restic locks the repository per operation — a backup takes a
+shared lock, an integrity check an exclusive one — so a check started while a
+backup is finishing would otherwise error. With the retry window it waits for
+the lock to clear. Set it to `0` to fail fast, or longer for a slow drive.
 
 > **Keep a copy of `password` in your password manager.** It is the encryption
 > key. Without it the backup cannot be restored, and it lives nowhere else.
