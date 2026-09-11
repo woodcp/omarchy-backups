@@ -1,0 +1,20 @@
+# One path per line. ~ is expanded. Missing paths are skipped, not errors.
+~/Work
+~/Projects
+~/Documents
+~/Pictures
+~/Videos
+~/Music
+~/Wallpapers
+~/.config
+~/.ssh
+~/.gnupg
+~/.claude
+~/.claude.json
+~/.bashrc
+~/.bash_profile
+~/.profile
+~/.zshrc
+~/.XCompose
+~/.local/bin
+~/.local/state/omarchy

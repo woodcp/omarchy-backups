@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# omarchy-backups — restic backups to a local drive, with an interactive menu.
+#
+#   omarchy-backups                 open the interactive menu (Super+B target)
+#   omarchy-backups now             run a backup, then prune per the policy
+#   omarchy-backups snapshots       list snapshots
+#   omarchy-backups status          repo size, latest snapshot, mount state
+#   omarchy-backups check           verify repository integrity
+#   omarchy-backups restore <snapshot|latest> <target> [--include <path>]
+#   omarchy-backups verify          restore one file and confirm it matches
+#   omarchy-backups <restic args>   run restic against the repo directly
+#
+# Config lives in ~/.config/omarchy-backups/ : config, sources, excludes, password.
+set -euo pipefail
+
+CONFIG_DIR="${OMARCHY_BACKUPS_CONFIG:-$HOME/.config/omarchy-backups}"
+[[ -f $CONFIG_DIR/config ]] || { echo "omarchy-backups: no config at $CONFIG_DIR — run install.sh" >&2; exit 1; }
+# shellcheck disable=SC1090
+source "$CONFIG_DIR/config"
+
+export RESTIC_REPOSITORY="${REPO:?REPO not set in config}"
+export RESTIC_PASSWORD_FILE="$CONFIG_DIR/password"
+EXCLUDES="$CONFIG_DIR/excludes"
+MOUNT="${MOUNT:-}"
+
+need_restic() { command -v restic >/dev/null || { echo "restic is not installed: omarchy pkg add restic" >&2; exit 1; }; }
+mounted() { [[ -z $MOUNT ]] || mountpoint -q "$MOUNT"; }
+require_mount() { mounted || { echo "Backup drive is not mounted at $MOUNT" >&2; exit 1; }; }
+
+read_sources() {
+  SOURCES=()
+  while IFS= read -r line; do
+    [[ -z $line || $line == \#* ]] && continue
+    line="${line/#\~\//$HOME/}"
+    [[ -e $line ]] && SOURCES+=("$line")
+  done < "$CONFIG_DIR/sources"
+}
+
+do_backup() {
+  need_restic; require_mount
+  [[ -f $RESTIC_REPOSITORY/config ]] || restic init
+  read_sources
+  (( ${#SOURCES[@]} )) || { echo "No source paths exist; nothing to back up." >&2; exit 1; }
+  restic backup --exclude-file="$EXCLUDES" --exclude-caches --one-file-system \
+    --tag "$(hostname)" "${SOURCES[@]}"
+  restic forget --prune \
+    --keep-daily "${KEEP_DAILY:-7}" --keep-weekly "${KEEP_WEEKLY:-4}" \
+    --keep-monthly "${KEEP_MONTHLY:-6}" --keep-yearly "${KEEP_YEARLY:-2}"
+}
+
+do_status() {
+  need_restic
+  if mounted; then echo "Drive:    mounted at ${MOUNT:-<none>}"; else echo "Drive:    NOT mounted (${MOUNT:-<none>})"; return; fi
+  echo "Repo:     $RESTIC_REPOSITORY"
+  local latest; latest=$(restic snapshots latest --json 2>/dev/null || echo '[]')
+  if [[ $latest == "[]" || -z $latest ]]; then
+    echo "Snapshot: none yet"
+  else
+    python3 - "$latest" <<'PY'
+import json,sys,datetime
+s=json.loads(sys.argv[1])[-1]
+t=s["time"][:19].replace("T"," ")
+print(f"Latest:   {s['short_id']}  {t}")
+PY
+  fi
+  echo "Space:"; df -h "$MOUNT" 2>/dev/null | awk 'NR==2{printf "  %s used, %s free of %s\n",$3,$4,$2}'
+}
+
+do_verify() {
+  need_restic; require_mount
+  local tmp probe rest
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+  probe="$HOME/.bashrc"; [[ -f $probe ]] || probe="$CONFIG_DIR/config"
+  restic restore latest --target "$tmp" --include "$probe" >/dev/null
+  rest="$tmp$probe"
+  if [[ -f $rest ]] && cmp -s "$probe" "$rest"; then
+    echo "Verify OK: restored $probe is byte-identical."
+  else
+    echo "Verify FAILED for $probe" >&2; return 1
+  fi
+}
+
+menu() {
+  command -v gum >/dev/null || { echo "gum is required for the menu" >&2; exit 1; }
+  while true; do
+    clear
+    gum style --border rounded --padding "0 2" --margin "1 0" --border-foreground 4 \
+      "  Omarchy Backups" "$(mounted && echo "drive mounted" || echo "drive OFFLINE")"
+    choice=$(gum choose --header "What would you like to do?" \
+      "Back up now" "Status" "Browse snapshots" "Restore a file" \
+      "Verify a restore" "Check integrity" "Edit config" "Quit") || exit 130
+    case "$choice" in
+      "Back up now")     do_backup; gum confirm "Done. Close?" && exit 130 || true ;;
+      "Status")          do_status; gum input --placeholder "press enter" >/dev/null || true ;;
+      "Browse snapshots")restic snapshots 2>&1 | gum pager || true ;;
+      "Restore a file")
+        snap=$(restic snapshots --json | python3 -c 'import json,sys;[print(s["short_id"],s["time"][:19].replace("T"," ")) for s in json.load(sys.stdin)]' | gum choose --header "Which snapshot?" | awk '{print $1}') || continue
+        [[ -z $snap ]] && continue
+        inc=$(gum input --header "Path to restore (blank = everything)" --placeholder "~/Work/afoa/notes.md")
+        tgt=$(gum input --header "Restore into" --value "$HOME/Restored") || continue
+        [[ -n $inc ]] && restic restore "$snap" --target "$tgt" --include "${inc/#\~\//$HOME/}" || restic restore "$snap" --target "$tgt"
+        gum input --placeholder "restored to $tgt — press enter" >/dev/null || true ;;
+      "Verify a restore") do_verify; gum input --placeholder "press enter" >/dev/null || true ;;
+      "Check integrity") restic check 2>&1 | gum pager || true ;;
+      "Edit config")     "${EDITOR:-nano}" "$CONFIG_DIR/config" ;;
+      "Quit")            exit 130 ;;
+    esac
+  done
+}
+
+case "${1:-menu}" in
+  menu|"")   menu ;;
+  now)       do_backup ;;
+  snapshots) need_restic; restic snapshots ;;
+  status)    do_status ;;
+  check)     need_restic; require_mount; restic check ;;
+  verify)    do_verify ;;
+  restore)   shift; need_restic; require_mount
+             snap="${1:?snapshot id or latest}"; target="${2:?target dir}"; shift 2
+             restic restore "$snap" --target "$target" "$@" ;;
+  *)         need_restic; restic "$@" ;;
+esac

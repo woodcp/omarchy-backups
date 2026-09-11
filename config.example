@@ -1,0 +1,14 @@
+# omarchy-backups configuration. Copy to ~/.config/omarchy-backups/config.
+
+# restic repository directory (on the backup drive).
+REPO=/mnt/cold-storage/Omarchy/restic
+
+# Mount point of the backup drive. The backup refuses to run unless this is
+# a live mount, so an unplugged drive is a clean skip, not a backup to nowhere.
+MOUNT=/mnt/cold-storage
+
+# Retention: how many snapshots to keep when pruning.
+KEEP_DAILY=7
+KEEP_WEEKLY=4
+KEEP_MONTHLY=6
+KEEP_YEARLY=2

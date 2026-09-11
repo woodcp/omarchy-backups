@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up to the configured drive with restic (omarchy-backups)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/omarchy-backups now
+Nice=15
+IOSchedulingClass=idle

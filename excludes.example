@@ -1,0 +1,35 @@
+# Paths and patterns restic skips. One per line; see `restic help backup`.
+/home/todd/.cache
+/home/todd/Downloads
+/home/todd/.local/share/Trash
+/home/todd/.local/share/mise
+/home/todd/.local/share/containers
+/home/todd/.local/share/Steam
+/home/todd/.npm
+/home/todd/.nuget
+/home/todd/.cargo
+/home/todd/.rustup
+/home/todd/.dotnet
+/home/todd/.nv
+/home/todd/.docker
+/home/todd/.config/google-chrome
+/home/todd/.config/chromium
+/home/todd/.config/Slack
+/home/todd/.config/Code/Cache*
+/home/todd/.config/JetBrains/*/caches
+/home/todd/thinkorswim
+/home/todd/.thinkorswim
+/home/todd/.java
+node_modules
+.venv
+__pycache__
+bin/Debug
+bin/Release
+obj
+target
+.git/objects/pack/*.pack.tmp
+# Container-owned database data dirs (root/uid-70, unreadable and inconsistent
+# at the file level — back databases up with pg_dump/dumpall, not file copy).
+.pgdata
+pgdata
+*/mssql/data
