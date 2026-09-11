@@ -7,6 +7,7 @@
 #   omarchy-backups status          repo size, latest snapshot, mount state
 #   omarchy-backups check           verify repository integrity
 #   omarchy-backups key             print the repository encryption key
+#   omarchy-backups passwd          change the key (needs the current key)
 #   omarchy-backups restore <snapshot|latest> <target> [--include <path>]
 #   omarchy-backups verify          restore one file and confirm it matches
 #   omarchy-backups <restic args>   run restic against the repo directly
@@ -84,6 +85,43 @@ do_verify() {
   fi
 }
 
+# Change the repository key. restic needs the CURRENT key to authenticate,
+# so this only works while the existing key still opens the repo — it cannot
+# recover a repo whose key is truly lost.
+do_passwd() {
+  need_restic; require_mount
+  [[ -f $RESTIC_REPOSITORY/config ]] || {
+    echo "No repository yet. To choose your own key before the first backup," >&2
+    echo "write it to $RESTIC_PASSWORD_FILE, then run 'omarchy-backups now'." >&2
+    exit 1
+  }
+  local newfile; newfile=$(mktemp); chmod 600 "$newfile"
+  trap 'rm -f "$newfile"' RETURN
+  if [[ ${1:-} == --generate ]]; then
+    head -c 300 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40 > "$newfile"
+  elif command -v gum >/dev/null; then
+    local k k2
+    k=$(gum input --password --header "New encryption key (blank to cancel)") || return 0
+    [[ -z $k ]] && return 0
+    k2=$(gum input --password --header "Repeat the new key") || return 0
+    [[ $k == "$k2" ]] || { echo "Keys did not match." >&2; return 1; }
+    printf '%s' "$k" > "$newfile"
+  else
+    local k k2
+    read -rs -p "New key: " k; echo
+    read -rs -p "Repeat:  " k2; echo
+    [[ $k == "$k2" ]] || { echo "Keys did not match." >&2; return 1; }
+    printf '%s' "$k" > "$newfile"
+  fi
+  # restic key passwd authenticates with the current key file, adds the new
+  # key, and removes the old one.
+  restic key passwd --new-password-file "$newfile"
+  install -m600 "$newfile" "$RESTIC_PASSWORD_FILE"
+  echo
+  echo "Key changed. The OLD key no longer works. Save the NEW key now:"
+  echo "    $(cat "$RESTIC_PASSWORD_FILE")"
+}
+
 menu() {
   command -v gum >/dev/null || { echo "gum is required for the menu" >&2; exit 1; }
   while true; do
@@ -111,6 +149,9 @@ menu() {
           "Backup encryption key" "" "$(cat "$RESTIC_PASSWORD_FILE")" "" \
           "Save this in your password manager." "Without it, backups cannot be restored."
         gum input --placeholder "press enter" >/dev/null || true ;;
+      "Change encryption key")
+        do_passwd || true
+        gum input --placeholder "press enter" >/dev/null || true ;;
       "Edit config")
         # EDITOR may carry arguments (Omarchy sets "omarchy-launch-editor
         # --inline"), so word-split it rather than treat it as one command.
@@ -124,6 +165,7 @@ menu() {
 case "${1:-menu}" in
   menu|"")   menu ;;
   key)       [[ -s $RESTIC_PASSWORD_FILE ]] && cat "$RESTIC_PASSWORD_FILE" || { echo "No key file at $RESTIC_PASSWORD_FILE" >&2; exit 1; } ;;
+  passwd)    shift; do_passwd "$@" ;;
   now)       do_backup ;;
   snapshots) need_restic; restic snapshots ;;
   status)    do_status ;;

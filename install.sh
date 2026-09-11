@@ -24,7 +24,7 @@ if [[ -f $old/password && ! -f $cfg/password ]]; then cp "$old/password" "$cfg/p
 # Bootstrap an encryption key on a fresh machine (no migrated password).
 new_key=0
 if [[ ! -s $cfg/password ]]; then
-  ( umask 077; LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 40 > "$cfg/password" )
+  ( umask 077; head -c 300 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40 > "$cfg/password" )
   new_key=1
 fi
 chmod 600 "$cfg/password"

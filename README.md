@@ -77,6 +77,7 @@ omarchy-backups verify                    # prove a restore works
 omarchy-backups restore latest ~/Restored --include ~/Work/afoa/notes.md
 omarchy-backups check                     # repository integrity
 omarchy-backups key                       # print the encryption key to save it
+omarchy-backups passwd [--generate]       # change or rotate the encryption key
 ```
 
 Any other arguments pass straight through to `restic` against the configured
@@ -104,15 +105,57 @@ the lock to clear. Set it to `0` to fail fast, or longer for a slow drive.
 
 ### The encryption key
 
-Every backup is encrypted. On a fresh install the tool generates a random key,
-prints it once, and waits for you to confirm you have saved it. You can show it
-again any time from the dashboard's **Show encryption key** entry or with
-`omarchy-backups key`, and `omarchy-backups status` reports where it lives.
+Every backup is encrypted with a single key. Here is its whole life cycle.
 
-> **Keep a copy in your password manager.** The key is stored at
-> `~/.config/omarchy-backups/password` on this machine, so you can read it back
-> while the machine lives. But it exists nowhere else: if this machine is lost,
-> only your saved copy can decrypt the backup drive. No key, no restore.
+**Created on first install.** The installer generates a random 40-character
+key, prints it once, and waits for you to confirm you have saved it. The key
+is written to `~/.config/omarchy-backups/password`.
+
+**Choosing your own key instead of the generated one.** Before the first
+backup, just put your own passphrase in the key file and run a backup:
+
+```bash
+printf '%s' 'your chosen passphrase' > ~/.config/omarchy-backups/password
+chmod 600 ~/.config/omarchy-backups/password
+omarchy-backups now
+```
+
+**Seeing it again.** While this machine is alive the key is readable, so you
+can save it any time:
+
+```bash
+omarchy-backups key          # print it
+omarchy-backups status       # confirms backups are encrypted and where the key lives
+```
+
+The dashboard's **Show encryption key** entry does the same.
+
+**Changing or rotating the key.** As long as the current key still opens the
+repository, you can replace it:
+
+```bash
+omarchy-backups passwd             # prompts for a new key (twice)
+omarchy-backups passwd --generate  # rotate to a fresh random key
+```
+
+or the dashboard's **Change encryption key** entry. This adds the new key,
+removes the old one, and updates your key file. **The old key stops working, so
+save the new one right away.** This is the tool to reach for if you think your
+saved copy may have been exposed.
+
+**If you lose the key.** This is the one thing to take seriously. The key
+exists in exactly two places: the file on this machine, and wherever you saved
+a copy. While the machine runs, `omarchy-backups key` recovers it. But if the
+machine is gone **and** you have no saved copy, the backups cannot be
+decrypted by anyone, including you — that is the point of encryption, and there
+is no reset or recovery. Changing the key also requires the current key, so it
+cannot rescue a repository whose key is already lost.
+
+If that ever happens, the only path forward is to start over: point `REPO` at a
+new empty directory (or `restic init` a fresh one), which begins a new
+encrypted history and leaves the old, unreadable one behind. **So keep a copy
+of the key in your password manager. It is the one piece this tool cannot
+regenerate for you.**
 
 ## What is and isn't backed up
 
