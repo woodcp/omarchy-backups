@@ -167,6 +167,44 @@ package stores, browser and chat data, and container-owned database
 directories, which are unreadable at the file level and inconsistent if copied
 live. Back databases up with a proper dump instead.
 
+## System snapshot (outside $HOME)
+
+Almost everything on Omarchy that matters lives in `$HOME`, so the sources above
+cover most recovery. A few things sit outside it and can't be rebuilt from the
+backup alone — most importantly your list of installed packages. A pre-backup
+hook captures them into a directory the backup already includes, so every run
+records a fresh system snapshot.
+
+The installer seeds `~/.config/omarchy-backups/pre-backup.d/10-system-snapshot.sh`,
+which writes to `~/.local/state/omarchy-backups/system/`:
+
+| File | What it is |
+|------|------------|
+| `packages-explicit.txt` | Explicitly installed packages (`pacman -Qqe`) |
+| `packages-aur.txt` | AUR / foreign packages (`pacman -Qqm`) |
+| `packages-all.txt` | Everything installed, with versions |
+| `fstab`, `hosts`, `os-release`, `mkinitcpio.conf`, `vconsole.conf`, `locale.conf` | Hand-edited system config |
+| `services-enabled.txt` / `-user.txt` | Which services are enabled |
+
+To reinstall every package on a rebuilt machine:
+
+```bash
+sudo pacman -S --needed - < packages-explicit.txt
+```
+
+**Root-only items** — the saved NetworkManager connections (which hold Wi-Fi
+passwords) and custom `sudoers.d` rules — are copied only when the hook can read
+them, so a normal nightly run skips them. To include them, run one backup with
+elevated rights:
+
+```bash
+sudo -E env "PATH=$PATH" omarchy-backups now
+```
+
+Leave them out if you'd rather not store network secrets in the backup. Any
+executable script you drop into `pre-backup.d/` runs before each backup, so this
+is also where a "dump my dev databases first" script would go.
+
 ## Restore from scratch
 
 On a fresh machine: install restic, mount the drive, put the password back in

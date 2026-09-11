@@ -18,3 +18,5 @@
 ~/.XCompose
 ~/.local/bin
 ~/.local/state/omarchy
+# System snapshot written by the pre-backup hook (package lists, fstab, etc.)
+~/.local/state/omarchy-backups/system

@@ -21,6 +21,13 @@ if [[ -f $old/excludes && ! -f $cfg/excludes ]]; then cp "$old/excludes" "$cfg/e
 if [[ -f $old/password && ! -f $cfg/password ]]; then cp "$old/password" "$cfg/password"; fi
 [[ -f $cfg/sources ]] || cp "$here/sources.example" "$cfg/sources"
 
+# Seed the system-snapshot pre-backup hook (captures package lists, fstab, etc.
+# into a backed-up directory). User can edit or remove it.
+mkdir -p "$cfg/pre-backup.d"
+[[ -f $cfg/pre-backup.d/10-system-snapshot.sh ]] || install -m755 "$here/hooks/10-system-snapshot.sh" "$cfg/pre-backup.d/10-system-snapshot.sh"
+# Ensure the snapshot dir is in the backup sources.
+grep -q 'omarchy-backups/system' "$cfg/sources" || echo '~/.local/state/omarchy-backups/system' >> "$cfg/sources"
+
 # Bootstrap an encryption key on a fresh machine (no migrated password).
 new_key=0
 if [[ ! -s $cfg/password ]]; then

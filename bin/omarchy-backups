@@ -33,14 +33,26 @@ require_mount() { mounted || { echo "Backup drive is not mounted at $MOUNT" >&2;
 read_sources() {
   SOURCES=()
   while IFS= read -r line; do
-    [[ -z $line || $line == \#* ]] && continue
+    line="${line%%#*}"; line="${line%"${line##*[![:space:]]}"}"  # drop inline comment + trailing space
+    [[ -z $line ]] && continue
     line="${line/#\~\//$HOME/}"
     [[ -e $line ]] && SOURCES+=("$line")
   done < "$CONFIG_DIR/sources"
 }
 
+run_hooks() {
+  local dir="$CONFIG_DIR/$1.d" h
+  [[ -d $dir ]] || return 0
+  for h in "$dir"/*; do
+    [[ -f $h && -x $h ]] || continue
+    echo "hook: $(basename "$h")"
+    "$h" || echo "  hook ${h##*/} exited $? (continuing)" >&2
+  done
+}
+
 do_backup() {
   need_restic; require_mount
+  run_hooks pre-backup
   [[ -f $RESTIC_REPOSITORY/config ]] || restic init
   read_sources
   (( ${#SOURCES[@]} )) || { echo "No source paths exist; nothing to back up." >&2; exit 1; }
