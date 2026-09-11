@@ -19,7 +19,14 @@ old="$HOME/.config/cold-storage-backup"
 if [[ -f $old/excludes && ! -f $cfg/excludes ]]; then cp "$old/excludes" "$cfg/excludes"; else [[ -f $cfg/excludes ]] || cp "$here/excludes.example" "$cfg/excludes"; fi
 if [[ -f $old/password && ! -f $cfg/password ]]; then cp "$old/password" "$cfg/password"; fi
 [[ -f $cfg/sources ]] || cp "$here/sources.example" "$cfg/sources"
-[[ -f $cfg/password ]] && chmod 600 "$cfg/password" || true
+
+# Bootstrap an encryption key on a fresh machine (no migrated password).
+new_key=0
+if [[ ! -s $cfg/password ]]; then
+  ( umask 077; LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 40 > "$cfg/password" )
+  new_key=1
+fi
+chmod 600 "$cfg/password"
 
 # systemd timer.
 install -m644 "$here/systemd/omarchy-backups.service" "$HOME/.config/systemd/user/"
@@ -44,5 +51,17 @@ LUA
 fi
 hyprctl reload >/dev/null 2>&1 && hyprctl configerrors || true
 
+if (( new_key )); then
+  echo
+  echo "==================  SAVE THIS BACKUP ENCRYPTION KEY  =================="
+  echo "  A new repository key was generated. It is the ONLY way to restore"
+  echo "  your backups. Copy it into your password manager now:"
+  echo
+  echo "      $(cat "$cfg/password")"
+  echo
+  echo "  It is stored only at $cfg/password on this machine."
+  echo "======================================================================"
+  echo
+fi
 echo "Installed. Password file: $cfg/password (keep a copy in your password manager)."
 echo "Press $key for the dashboard, or run: omarchy-backups status"

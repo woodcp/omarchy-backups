@@ -25,10 +25,12 @@ git clone https://github.com/woodcp/omarchy-backups.git ~/Work/omarchy-backups
 
 The installer symlinks the tool into `~/.local/bin`, seeds config under
 `~/.config/omarchy-backups/`, adds a **Super+B** binding, enables a nightly
-timer, and reloads Hyprland. If an older `cold-storage-backup` setup is
-present, its repository, password, and excludes are carried over so no history
-is lost. Choose a different key with `BACKUPS_KEY="SUPER + SHIFT + B"` before
-running it.
+timer, and reloads Hyprland. On a fresh machine it generates a random
+repository encryption key and prints it once — **copy that into your password
+manager immediately**, because it is the only way to restore. If an older
+`cold-storage-backup` setup is present, its repository, key, and excludes are
+carried over instead, so no history is lost. Choose a different hotkey with
+`BACKUPS_KEY="SUPER + SHIFT + B"` before running it.
 
 ### Requirements
 
