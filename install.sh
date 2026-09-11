@@ -7,6 +7,7 @@
 set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 key="${BACKUPS_KEY:-SUPER + B}"
+key_desc="$key"
 cfg="$HOME/.config/omarchy-backups"
 bindings="$HOME/.config/hypr/bindings.lua"
 
@@ -52,16 +53,35 @@ fi
 hyprctl reload >/dev/null 2>&1 && hyprctl configerrors || true
 
 if (( new_key )); then
+  key=$(cat "$cfg/password")
   echo
-  echo "==================  SAVE THIS BACKUP ENCRYPTION KEY  =================="
-  echo "  A new repository key was generated. It is the ONLY way to restore"
-  echo "  your backups. Copy it into your password manager now:"
+  echo "  ┌────────────────────────────────────────────────────────────────┐"
+  echo "  │   SAVE YOUR BACKUP ENCRYPTION KEY                               │"
+  echo "  └────────────────────────────────────────────────────────────────┘"
   echo
-  echo "      $(cat "$cfg/password")"
+  echo "  A new key was generated to encrypt your backups:"
   echo
-  echo "  It is stored only at $cfg/password on this machine."
-  echo "======================================================================"
+  echo "      $key"
   echo
+  echo "  This key is the ONLY way to restore your backups. Copy it into"
+  echo "  your password manager now."
+  echo
+  echo "  It lives on this machine at:"
+  echo "      $cfg/password"
+  echo "  You can show it again with:  omarchy-backups key"
+  echo "  But if THIS MACHINE is lost, only your saved copy can decrypt the"
+  echo "  backup drive. No copy, no restore."
+  echo
+  if [[ -t 0 ]]; then
+    if command -v gum >/dev/null; then
+      until gum confirm "I have saved the encryption key in my password manager"; do :; done
+    else
+      read -r -p "  Type 'saved' once you have copied the key: " ack
+      while [[ $ack != saved ]]; do read -r -p "  Type 'saved' to continue: " ack; done
+    fi
+  fi
 fi
-echo "Installed. Password file: $cfg/password (keep a copy in your password manager)."
+echo
+echo "Installed. Press $key_desc for the dashboard."
+(( new_key )) || echo "Encryption key: $cfg/password (keep a copy in your password manager)."
 echo "Press $key for the dashboard, or run: omarchy-backups status"

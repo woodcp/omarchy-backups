@@ -76,6 +76,7 @@ omarchy-backups snapshots                 # list snapshots
 omarchy-backups verify                    # prove a restore works
 omarchy-backups restore latest ~/Restored --include ~/Work/afoa/notes.md
 omarchy-backups check                     # repository integrity
+omarchy-backups key                       # print the encryption key to save it
 ```
 
 Any other arguments pass straight through to `restic` against the configured
@@ -101,8 +102,17 @@ shared lock, an integrity check an exclusive one — so a check started while a
 backup is finishing would otherwise error. With the retry window it waits for
 the lock to clear. Set it to `0` to fail fast, or longer for a slow drive.
 
-> **Keep a copy of `password` in your password manager.** It is the encryption
-> key. Without it the backup cannot be restored, and it lives nowhere else.
+### The encryption key
+
+Every backup is encrypted. On a fresh install the tool generates a random key,
+prints it once, and waits for you to confirm you have saved it. You can show it
+again any time from the dashboard's **Show encryption key** entry or with
+`omarchy-backups key`, and `omarchy-backups status` reports where it lives.
+
+> **Keep a copy in your password manager.** The key is stored at
+> `~/.config/omarchy-backups/password` on this machine, so you can read it back
+> while the machine lives. But it exists nowhere else: if this machine is lost,
+> only your saved copy can decrypt the backup drive. No key, no restore.
 
 ## What is and isn't backed up
 
