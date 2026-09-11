@@ -103,7 +103,11 @@ menu() {
         gum input --placeholder "restored to $tgt — press enter" >/dev/null || true ;;
       "Verify a restore") do_verify; gum input --placeholder "press enter" >/dev/null || true ;;
       "Check integrity") restic check 2>&1 | gum pager || true ;;
-      "Edit config")     "${EDITOR:-nano}" "$CONFIG_DIR/config" ;;
+      "Edit config")
+        # EDITOR may carry arguments (Omarchy sets "omarchy-launch-editor
+        # --inline"), so word-split it rather than treat it as one command.
+        # shellcheck disable=SC2086
+        ${EDITOR:-nano} "$CONFIG_DIR/config" ;;
       "Quit")            exit 130 ;;
     esac
   done
