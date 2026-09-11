@@ -12,3 +12,7 @@ KEEP_DAILY=7
 KEEP_WEEKLY=4
 KEEP_MONTHLY=6
 KEEP_YEARLY=2
+
+# How long an operation waits for a busy repository before giving up, instead
+# of failing immediately when another backup or check holds the lock.
+RETRY_LOCK=1m
