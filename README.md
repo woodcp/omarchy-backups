@@ -57,6 +57,8 @@ Then set `REPO` and `MOUNT` in `~/.config/omarchy-backups/config` to match.
 
 Press **Super+B**:
 
+![The omarchy-backups dashboard](docs/dashboard.png)
+
 | Choice | What it does |
 |--------|--------------|
 | Back up now | Run a backup and prune old snapshots |
